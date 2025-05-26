@@ -1,0 +1,30 @@
+* The Sex language
+Sex is a S-expressions language, which transpiles to C.
+
+* Compilation and usage
+Sex is written in Chicken Scheme, so first you'll need to get yourself
+a Chicken.
+
+** Compilation
+~make~
+
+** Usage
+You'll also need a C compiler, so pick any.
+#+begin_src
+cat hello-world.sex | sexc > hello_world.c
+cc hello_world.c -o hello_world
+#+end_src
+
+* Features
+** Full C interoperability
+Just ~(include "Your/Favourite/Library.h")~ and use it as you would
+have is C. For hardcore fans of traditional Lisp naming convention,
+Sex offers automatic unkebabification of all symbols, i.e. no more
+ugly ~GL_ARRAY_BUFFER~'s in your code, they may be writted in their
+proper form: ~GL-ARRAY-BUFFER~.
+
+** Use an established environment for development
+As Sex is S-expressions, you always have Emacs with paredit as your
+best option.
+
+** COMING SOON: Polymorhpism

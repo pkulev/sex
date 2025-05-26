@@ -1,0 +1,10 @@
+(include stdio.h)
+(include unistd.h)
+
+(fn int main ((int argc) (char **argv))
+    (puts "Hello from Sex!")
+    (var (array char 513) name)
+    (puts "What is your name?")
+    (scanf "%s" &name)
+    (printf "Hello, %s!\n" name)
+    0)
