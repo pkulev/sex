@@ -76,6 +76,7 @@ All commands in `lisp-mode-shared-map' are inherited by this map.")
   (setq-local prettify-symbols-alist lisp-prettify-symbols-alist))
 
 (put 'fn 'lisp-indent-function 'defun)
+(put 'pub 'lisp-indent-function 'defun)
 (put 'template 'lisp-indent-function 'defun)
 (put 'struct 'lisp-indent-function 'defun)
 (put 'var 'lisp-indent-function 0)
