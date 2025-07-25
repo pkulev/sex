@@ -2,9 +2,11 @@
          (uses templates))
 
 (import brev-separate
+        (chicken file)
         (chicken pathname)
         (chicken plist)
         (chicken pretty-print)
+        (chicken process)
         (chicken process-context)
         (chicken string)
         fmt
@@ -195,24 +197,35 @@
 ;;; Main function facilities
 
 (define opts-grammar
-  `((output "Write output to file"
-            (required #f)
-            (value #t)
-            (single-char #\o))
+  `((c-compiler "Select C compiler. Defaults to value of SEX_CC environment variable, or if it is empty, to cc"
+                (required #f)
+                (value #t))
+    (compile-object "Compile object file instead of executable program"
+                    (required #f)
+                    (value #f)
+                    (single-char #\c))
+    (preprocess "Emit C code"
+                (required #f)
+                (value #f)
+                (single-char #\E))
     (help "Show this help"
           (required #f)
           (value #f)
           (single-char #\h))
-    (macro-expand "Emit macro-expanded Sex code instead of C"
+    (macro-expand "Emit macro-expanded Sex code"
                   (required #f)
                   (value #f)
-                  (single-char #\m))))
+                  (single-char #\m))
+    (output "Write output to file. Default file name is a.out. If -E or -m options are provided, defaults to stdout"
+            (required #f)
+            (value #t)
+            (single-char #\o))))
 
 (define (print-help)
-  (fmt #t "Usage: sexc [OPTIONS] [FILE]\n")
-  (fmt #t "Options: -o, --output <file>        Write output to file. If omitted, write to stdout\n")
-  (fmt #t "         -h, --help                 Show this help\n")
-  (fmt #t "         -m, --macro-expand         Emit macro-expanded Sex code instead of C\n"))
+  (fmt #t "Usage: sexc [options] filename [-- options-for-c-compiler]\n")
+  (fmt #t "Options:\n")
+  (fmt #t (usage opts-grammar))
+  (fmt #t ""))
 
 (define (help-arg? args)
   (assoc 'help args))
@@ -222,11 +235,20 @@
     (if arg (cdr arg)
         default)))
 
+(define (get-rest-args args)
+  (cdr (assoc '@ args)))
+
+(define (get-c-compiler-args args)
+  (do ((c-args (get-rest-args args) (cdr c-args)))
+      ((or (null? c-args)
+           (char=? #\- (string-ref (car c-args) 0)))
+       c-args)))
+
 (define (get-input-file args)
-  (let ((rest-args (assoc '@ args)))
-    (if (= 1 (length rest-args))
+  (let ((rest-args (get-rest-args args)))
+    (if (null? rest-args)
         'stdin
-        (cadr rest-args))))
+        (car rest-args))))
 
 (define (read-from-file file)
   (with-input-from-file (pathname-strip-directory file)
@@ -239,13 +261,48 @@
      (current-directory)
      (pathname-directory file)))))
 
+(define (preprocess-or-macroexpand sex-forms output args)
+  (if (not (eq? output 'default))
+      (with-output-to-file output
+        (lambda ()
+          (if (get-arg args 'macro-expand #f)
+              (map pp sex-forms)
+              (emit-c sex-forms))))
+      (if (get-arg args 'macro-expand #f)
+          (map pp sex-forms)
+          (emit-c sex-forms))))
+
+(define (get-env-var name)
+  (get-environment-variable name))
+
+(define (compile-to-file sex-forms output args)
+  (let ((compiler (or (get-arg args 'c-compiler #f)
+                      (get-env-var "SEX_CC")
+                      "cc"))
+        (out-file (if (eq? output 'default)
+                      "a.out"
+                      output))
+        (temp-c-out (create-temporary-file ".sex.c")))
+    (with-output-to-file temp-c-out
+      (lambda ()
+        (emit-c sex-forms)))
+    (call-with-values
+        (lambda () (process compiler (append (list temp-c-out "-o" out-file)
+                                             (if (get-arg args 'compile-object #f)
+                                                 (list "-c")
+                                                 (list))
+                                             (get-c-compiler-args args))))
+      (lambda (out-port in-port pid)
+        (process-wait pid)))))
+
 (define (main)
   (let* ((raw-args (command-line-arguments))
          (current-dir (current-directory))
          (args (getopt-long raw-args
                             opts-grammar))
-         (output (get-arg args 'output 'stdout))
+         (output (get-arg args 'output 'default))
          (help (help-arg? args))
+
          (input (get-input-file args)))
     (if help (print-help)
         (let* ((raw-forms
@@ -256,10 +313,9 @@
                       (read-from-file input))))
                (sex-forms (process-raw-forms raw-forms (list))))
           (change-directory current-dir)
-          (if (get-arg args 'macro-expand #f)
-              (map pp sex-forms)
-              (if (not (eq? output 'stdout))
-                  (with-output-to-file output
-                    (lambda ()
-                      (emit-c sex-forms)))
-                  (emit-c sex-forms)))))))
+          (if (or (get-arg args 'macro-expand #f)
+                  (get-arg args 'preprocess #f))
+              ;; Preprocess or macroexpand
+              (preprocess-or-macroexpand sex-forms output args)
+              ;; Compile file!
+              (compile-to-file sex-forms output args))))))
