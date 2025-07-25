@@ -14,8 +14,6 @@
         srfi-1                          ; list routines
         tree)
 
-(define +debug+ #f)
-
 (define (unkebabify sym)
   (case sym
     ((-) sym)
@@ -176,7 +174,6 @@
      (eval (cons 'import (cdr form))) acc)
     (else
      (walk-sex-tree form acc))))
-
 
 (define (process-raw-forms raw-forms acc)
   (if (null? raw-forms)
