@@ -1,0 +1,5 @@
+(include stdio.h)
+
+(pub fn int main ()
+  (puts "Hello from Sex!")
+  0)
