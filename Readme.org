@@ -6,7 +6,7 @@ computations are written in Chicken.
 
 And Chicken is [[https://call-cc.org][R5RS Scheme]].
 
-* Compilation and usage
+* Compilation
 First, get yourself a Chicken. Second, some Chicken deps.
 
 ** Install Chicken Eggs
@@ -19,14 +19,18 @@ https://wiki.call-cc.org/man/5/Extension%20tools#changing-the-repository-locatio
 ** Compilation
 ~make~
 
-** Usage
+* Usage
 You'll also need a C compiler, so pick any.
 #+begin_src
-cat hello-world.sex | sexc > hello_world.c
-cc hello_world.c -o hello_world
+sexc ./examples/hell-world.sex -o hello
 #+end_src
 
-* Example
+That't it. Now you should have executable named ~hello~ in your
+directory. Sex uses C under the hood, the default C compiler is ~cc~,
+but you can pass any using ~--c-compiler~ option, or by setting
+~SEX_CC~ environment variable.
+
+** Example
 Here is an example, demonstrating what Sex source looks like, and what
 it compiles too. An avid reader also shall notice how we call Chicken
 procedures in Sex source.
@@ -89,6 +93,17 @@ struct foo {
     int b;
 };
 #+end_src
+
+** Modules
+Each source file is a module. Module can provide public interface and
+be imported by using ~(import path/to/module)~ expression. Module
+search path consists of two parts: firs is relative to the source
+being compiled location, and the second is ~SEX_MODULE_PATH~
+environment variable.
+
+Module's public interface consists of everything declarred
+~pub~. Structures, function, templates, types, varialbes can be
+public.
 
 ** Syntactic templates
 Sex has support for template substitutions. Any piece of code can be
