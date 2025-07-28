@@ -86,7 +86,7 @@
 
    ;; another special case - template
    ((template? form)
-    (append (fold
+    (append (fold-right
              walk-generic
              (list)
              (eval form))
@@ -95,11 +95,10 @@
    ;; toplevel, or a start of a regular list form
    (else
     (let ((new-acc (list)))
-      (cons (reverse
-             (fold
-              walk-generic
-              new-acc
-              form))
+      (cons (fold-right
+             walk-generic
+             new-acc
+             form)
             acc)))))
 
 (define (normalize-fn-form form)
@@ -141,7 +140,10 @@
      (walk-function form #f acc))
     ((var)
      (append (walk-generic (list 'static (cdr form)) (list)) acc))
-    (else (error "Pub what?"))))
+    ((define import include struct template typedef union var)
+     ;; ignore here, used in generating public interface
+     (process-form (cdr form) acc))
+    (else (error "Pub what?" (cadr form)))))
 
 (define (template? form)
   (and (list? form)
@@ -151,9 +153,9 @@
 (define (walk-sex-tree form acc)
   (if (list? form)
       (if (template? form)
-          (fold (fn (walk-sex-tree x y))
-                acc
-                (eval form))
+          (fold-right (fn (walk-sex-tree x y))
+                      acc
+                      (eval form))
           (case (car form)
             ((fn) (walk-function form #t acc))
             ((extern) (walk-extern form acc))
@@ -174,6 +176,11 @@
      (load (cadr form)) acc)
     ((chicken-import)
      (eval (cons 'import (cdr form))) acc)
+    ((import)
+     (append (process-raw-forms
+
+              (import-modules (cdr form)) (list))
+             acc))
     (else
      (walk-sex-tree form acc))))
 
@@ -190,9 +197,83 @@
 
 (define (emit-c forms)
   (for-each (lambda (form)
-              (fmt #t (c-expr form))
-              (fmt #t "\n"))
+              (fmt #t (c-expr form) nl))
             forms))
+
+;;; Module stuff
+
+(define (import-modules module-list)
+  ;; Module list is a list of symbols
+  ;; How Sex handles modules:
+  ;; For each module in a list, construct path, find module by path in
+  ;; module path directories, extract public definitions from the
+  ;; module, paste them in current one in emulation of C include
+  ;; directives.
+  (fold-right append (list)
+              (map (fn (import-module (symbol->string x)))
+                   module-list)))
+
+(define (import-module name)
+  (let ((module-path (locate-module name)))
+    (assert module-path (fmt #f "Failed to find module " name " in "
+                             (get-module-paths)))
+    (read-public-interface module-path)))
+
+(define (get-module-paths)
+  (cons (current-directory)
+        +persistent-module-paths+))
+
+(define (locate-module name)
+  ;; Module locations: relative to file being compiled, or in what was
+  ;; in SEX_MODULE_PATH env var at the start of the process (see
+  ;; load-persistent-module-paths function)
+
+  (let ((search-paths (get-module-paths)))
+    (let loop ((paths search-paths))
+      (if (null? paths)
+          #f
+          (or (module-exists? name (car paths))
+              (loop (cdr paths)))))))
+
+(define (module-exists? name module-dir)
+  ;; returns absolute path to module, if it exists
+  (and (directory-exists? module-dir)
+       (let ((module-path (make-absolute-pathname module-dir name "sex")))
+         (and (file-exists? module-path)
+              (file-readable? module-path)
+              module-path))))
+
+(define (read-public-interface module-path)
+  ;; pub fns are reduced to prototypes, other pub forms are just pasted
+  (let ((raw-forms (read-from-file module-path)))
+    (fold
+     process-public-interface-form
+     (list)
+     raw-forms)))
+
+(define (process-public-interface-form form acc)
+  (case (car form)
+    ((pub)
+     (case (cadr form)
+       ((fn) ; replace with prototype
+        ;; fn type name (arg-list) (body)
+        ;; 1    2   3       4 - we need first 4
+        (cons (take (cdr form) 4) acc))
+       ((define import include struct template typedef union var)
+        (cons (cdr form) acc))
+       (else (error "Pub what? " (cadr form)))))
+    (else acc)))
+
+(define +persistent-module-paths+ (list))
+
+(define (load-persistent-module-paths)
+  (let ((sex-module-path-env-var
+         (get-env-var "SEX_MODULE_PATH")))
+    (when sex-module-path-env-var
+      (set! +persistent-module-paths+
+        (map (lambda (p)
+               (make-absolute-pathname p #f #f))
+             (string-split sex-module-path-env-var ":"))))))
 
 ;;; Main function facilities
 
@@ -208,6 +289,9 @@
                 (required #f)
                 (value #f)
                 (single-char #\E))
+    (public-interface "Get module's public interface"
+                      (required #f)
+                      (value #f))
     (help "Show this help"
           (required #f)
           (value #f)
@@ -250,27 +334,49 @@
         'stdin
         (car rest-args))))
 
+(define-syntax prog1
+  (syntax-rules ()
+    ((prog1 form . forms)
+     (let ((res form))
+       (begin . forms)
+       res))))
+
+(define-syntax with-directory
+  (syntax-rules ()
+    ((with-directory path form . forms)
+     (let ((current-dir (current-directory)))
+       (set-working-directory path)
+       (prog1
+        (begin form . forms)
+        (change-directory current-dir))))))
+
 (define (read-from-file file)
-  (with-input-from-file (pathname-strip-directory file)
-    (fn (read-forms (list)))))
+  (with-directory file
+   (with-input-from-file (pathname-strip-directory file)
+     (fn (read-forms (list))))))
 
 (define (set-working-directory file)
   (change-directory
    (normalize-pathname
-    (make-absolute-pathname
-     (current-directory)
-     (pathname-directory file)))))
+    (if (absolute-pathname? file)
+        (pathname-directory file)
+        (make-absolute-pathname
+         (current-directory)
+         (pathname-directory file))))))
+
+(define (write-to-file-or-stdout output what)
+  (if (eq? output 'default)
+      (what)
+      (with-output-to-file output
+        (fn (what)))))
 
 (define (preprocess-or-macroexpand sex-forms output args)
-  (if (not (eq? output 'default))
-      (with-output-to-file output
-        (lambda ()
-          (if (get-arg args 'macro-expand #f)
-              (map pp sex-forms)
-              (emit-c sex-forms))))
-      (if (get-arg args 'macro-expand #f)
-          (map pp sex-forms)
-          (emit-c sex-forms))))
+  (write-to-file-or-stdout
+   output
+   (lambda ()
+    (if (get-arg args 'macro-expand #f)
+        (map pp sex-forms)
+        (emit-c sex-forms)))))
 
 (define (get-env-var name)
   (get-environment-variable name))
@@ -287,35 +393,56 @@
       (lambda ()
         (emit-c sex-forms)))
     (call-with-values
-        (lambda () (process compiler (append (list temp-c-out "-o" out-file)
-                                             (if (get-arg args 'compile-object #f)
-                                                 (list "-c")
-                                                 (list))
-                                             (get-c-compiler-args args))))
+        (lambda ()
+          (process compiler (append (list temp-c-out "-o" out-file)
+                                    (if (get-arg args 'compile-object #f)
+                                        (list "-c")
+                                        (list))
+                                    (get-c-compiler-args args))))
       (lambda (out-port in-port pid)
         (process-wait pid)))))
 
+(define (process-input input raw-forms)
+  (let ((current-dir (current-directory)))
+    (unless (eq? input 'stdin)
+      (set-working-directory input))
+    (prog1
+     (process-raw-forms raw-forms (list))
+     (change-directory current-dir))))
+
 (define (main)
   (let* ((raw-args (command-line-arguments))
-         (current-dir (current-directory))
          (args (getopt-long raw-args
                             opts-grammar))
          (output (get-arg args 'output 'default))
          (help (help-arg? args))
 
-         (input (get-input-file args)))
-    (if help (print-help)
-        (let* ((raw-forms
-                (if (eq? input 'stdin)
-                    (read-forms (list))
-                    (begin
-                      (set-working-directory input)
-                      (read-from-file input))))
-               (sex-forms (process-raw-forms raw-forms (list))))
-          (change-directory current-dir)
-          (if (or (get-arg args 'macro-expand #f)
-                  (get-arg args 'preprocess #f))
-              ;; Preprocess or macroexpand
-              (preprocess-or-macroexpand sex-forms output args)
-              ;; Compile file!
-              (compile-to-file sex-forms output args))))))
+         (input (get-input-file args))
+         (current-dir (current-directory)))
+    (call/cc
+     (lambda (return)
+       (when help
+         (print-help)
+         (return #f))
+       (when (get-arg args 'public-interface #f)
+         (assert (not (eq? input 'stdin)) "Error: --public-interface requires file argument")
+
+         (write-to-file-or-stdout
+          output
+          (fn
+           (map pp (reverse
+                    (read-public-interface input)))))
+         (return #f))
+       (load-persistent-module-paths)
+
+       (let* ((raw-forms
+               (if (eq? input 'stdin)
+                   (read-forms (list))
+                   (read-from-file input)))
+              (sex-forms (process-input input raw-forms)))
+         (if (or (get-arg args 'macro-expand #f)
+                 (get-arg args 'preprocess #f))
+             ;; Preprocess or macroexpand
+             (preprocess-or-macroexpand sex-forms output args)
+             ;; Compile file!
+             (compile-to-file sex-forms output args)))))))

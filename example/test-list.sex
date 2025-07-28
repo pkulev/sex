@@ -5,7 +5,7 @@
 
 (chicken-import srfi-1 brev-separate)                 ; list routines, e.g. fold
 
-(chicken-load "list.seh")
+(import list)
 
 (chicken-define (imports-test a b c)
   (fold + 0 (list 1 2 3 a b c)))
@@ -19,10 +19,10 @@
 (var foo f #((= .a-field 1.2)))
 
 (list-T int)
-(make-list-T int)
-(add-value-list-T int)
-(length-list-T int)
-(is-empty-list-T int)
+(make-list-T int #f)
+(add-value-list-T int #f)
+(length-list-T int #f)
+(is-empty-list-T int #f)
 
 (extern fn void puk ((int a) (float b)))
 (fn int bar () ,(imports-test 10 20 30))
@@ -38,32 +38,13 @@
      (add-value-list-int l 3)
      (add-value-list-int l 4)
      (printf "Size of the list: %zu\n" (length-list-int l))
-     (list-for-each l v
+     (list-for-each list-int l int v
        (printf "%d " v))
      (printf "\n")
-     (printf "%zu\n" l->next)
+     (printf "Size of the list: %zu\n" (length-list-int l))
+     (printf "%p\n" l->next)
      0)
 
-(pub fn segs-renderer* create-renderer ())
-(pub fn void clear-command-buffer ((segs-renderer *r)))
-(pub fn void add-render-command ((segs-renderer *r) ((fn void ()) command)))
-(pub fn void commit-command-buffer ((segs-renderer *r)))
-
-(template (list-T ?T)
-  (struct list-?T
-    ((?T value)
-     ((* list-?T) next))))
-
-(template (list-for-each type list-var elt-var body)
-  (var type elt-var (-> list-var value))
-  (while (!= (-> list-var next) NULL)
-    body
-    (= list-var (-> list-var next))
-    (= elt-var (-> list-var value))))
-
-; ... somewhere later
-(list-T int)
-
 (pub fn void print-list (((const list-int) *l))
-     (list-for-each int l v (printf "%d " v))
+     (list-for-each (const list-int) l int v (printf "%d " v))
      (printf "\n"))
