@@ -20,7 +20,21 @@ https://wiki.call-cc.org/man/5/Extension%20tools#changing-the-repository-locatio
 ~make~
 
 * Usage
-You'll also need a C compiler, so pick any.
+** Summary
+#+begin_src
+Usage: sexc [options] filename [-- options-for-c-compiler]
+Options:
+ --c-compiler=ARG         Select C compiler. Defaults to value of SEX_CC
+                          environment variable, or if it is empty, to cc
+ -c, --compile-object     Compile object file instead of executable program
+ -E, --preprocess         Emit C code
+ --public-interface       Get module's public interface
+ -h, --help               Show this help
+ -m, --macro-expand       Emit macro-expanded Sex code
+ -o, --output=ARG         Write output to file. Default file name is a.out.
+                          If -E or -m options are provided, defaults to stdout
+#+end_src
+** Compiling Hello World
 #+begin_src
 sexc ./examples/hell-world.sex -o hello
 #+end_src

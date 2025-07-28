@@ -278,32 +278,35 @@
 ;;; Main function facilities
 
 (define opts-grammar
-  `((c-compiler "Select C compiler. Defaults to value of SEX_CC environment variable, or if it is empty, to cc"
-                (required #f)
-                (value #t))
-    (compile-object "Compile object file instead of executable program"
-                    (required #f)
-                    (value #f)
-                    (single-char #\c))
-    (preprocess "Emit C code"
-                (required #f)
-                (value #f)
-                (single-char #\E))
-    (public-interface "Get module's public interface"
+  (let ((padding 26))
+    `((c-compiler ,(fmt #f "Select C compiler. Defaults to value of SEX_CC" nl
+                        (pad padding) "environment variable, or if it is empty, to cc")
+                  (required #f)
+                  (value #t))
+      (compile-object "Compile object file instead of executable program"
                       (required #f)
-                      (value #f))
-    (help "Show this help"
-          (required #f)
-          (value #f)
-          (single-char #\h))
-    (macro-expand "Emit macro-expanded Sex code"
+                      (value #f)
+                      (single-char #\c))
+      (preprocess "Emit C code"
                   (required #f)
                   (value #f)
-                  (single-char #\m))
-    (output "Write output to file. Default file name is a.out. If -E or -m options are provided, defaults to stdout"
+                  (single-char #\E))
+      (public-interface "Get module's public interface"
+                        (required #f)
+                        (value #f))
+      (help "Show this help"
             (required #f)
-            (value #t)
-            (single-char #\o))))
+            (value #f)
+            (single-char #\h))
+      (macro-expand "Emit macro-expanded Sex code"
+                    (required #f)
+                    (value #f)
+                    (single-char #\m))
+      (output ,(fmt #f "Write output to file. Default file name is a.out." nl
+                    (pad padding) "If -E or -m options are provided, defaults to stdout")
+              (required #f)
+              (value #t)
+              (single-char #\o)))))
 
 (define (print-help)
   (fmt #t "Usage: sexc [options] filename [-- options-for-c-compiler]\n")
