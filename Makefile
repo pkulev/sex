@@ -1,6 +1,6 @@
 CHICKEN_C = csc
 
-MODULES = sexc templates main
+MODULES = sexc main modules templates utils
 OBJ = $(MODULES:%=%.o)
 
 # chicken flags
