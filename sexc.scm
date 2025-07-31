@@ -47,12 +47,6 @@
          (unkebabify atom)
          atom))))
 
-(define (tree-finder symbol)
-  (lambda (node)
-    (or (and (tree? node)
-             (eq? (car node) symbol))
-        #f)))
-
 (define (make-field-access form)
   (assert (= 2 (length form)) "Wrong field access format")
   (unkebabify
