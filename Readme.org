@@ -45,40 +45,27 @@ but you can pass any using ~--c-compiler~ option, or by setting
 ~SEX_CC~ environment variable.
 
 ** Example
-Here is an example, demonstrating what Sex source looks like, and what
-it compiles too. An avid reader also shall notice how we call Chicken
-procedures in Sex source.
-
-The Sex source:
+An example of Sex source:
 #+begin_src
 (include stdio.h)
 
-(define (foo)
-  "Hello from Chicken code!\n")
-
 (pub fn int main ((int argc) (char **argv))
-    (puts "Hello from Sex!")
-    (var (array char 512) name)
-    (puts "What is your name?")
-    (scanf "%s" &name)
-    (printf "Hello, %s!\n" name)
-    (printf ,(foo))
-    0)
+  (puts "Hello from Sex!")
+  (var (array char 512) name)
+  (puts "What is your name?")
+  (scanf "%s" (cast char* &name))
+  (printf "Hello, %s!\n" name)
+  0)
 #+end_src
 
-The resulting C source:
+Compile and run:
 #+begin_src
-#include <stdio.h>
-
-int main (int argc, char **argv) {
-    puts("Hello from Sex!");
-    char name[512];
-    puts("What is your name?");
-    scanf("%s", &name);
-    printf("Hello, %s!\n", name);
-    printf("Hello from Chicken code!\n");
-    return 0;
-}
+~/dev/sex $ ./sexc ./example/hello-world.sex -o hello-world
+~/dev/sex $ ./hello-world
+Hello from Sex!
+What is your name?
+Alex
+Hello, Alex!
 #+end_src
 
 * Features
@@ -86,27 +73,11 @@ int main (int argc, char **argv) {
 Just ~(include "Your/Favourite/Library.h")~ and use it as you would
 have is C.
 
+** Auto unkebabification
 For hardcore fans of traditional Lisp naming convention,
 Sex offers automatic unkebabification of all symbols, i.e. no more
 ugly ~GL_ARRAY_BUFFER~ s in your code, they may be written in their
 proper form: ~GL-ARRAY-BUFFER~.
-
-** Auto typedef for structs
-Probably harmless idk. Example:
-#+begin_src
-(struct foo
-  ((float a)
-   (int b)))
-#+end_src
-expands to
-#+begin_src
-typedef struct foo foo;
-
-struct foo {
-    float a;
-    int b;
-};
-#+end_src
 
 ** Modules
 Each source file is a module. Module can provide public interface and

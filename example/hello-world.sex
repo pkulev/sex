@@ -1,5 +1,9 @@
 (include stdio.h)
 
-(pub fn int main ()
+(pub fn int main ((int argc) (char **argv))
   (puts "Hello from Sex!")
+  (var (array char 512) name)
+  (puts "What is your name?")
+  (scanf "%s" (cast char* &name))
+  (printf "Hello, %s!\n" name)
   0)
