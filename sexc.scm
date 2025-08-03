@@ -4,6 +4,8 @@
 
 (include "utils.macros.scm")
 
+(load "fmt-c.scm")
+
 (import brev-separate
         (chicken file)
         (chicken pathname)
@@ -13,7 +15,6 @@
         (chicken process-context)
         (chicken string)
         fmt
-        fmt-c
         getopt-long
         regex
         srfi-1                          ; list routines

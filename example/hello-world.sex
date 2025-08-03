@@ -6,4 +6,4 @@
   (puts "What is your name?")
   (scanf "%s" (cast char* &name))
   (printf "Hello, %s!\n" name)
-  0)
+  (return 0))
