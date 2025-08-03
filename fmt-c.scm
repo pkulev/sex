@@ -6,6 +6,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; additional state information
 
+(declare (unit fmt-c))
+
 (import fmt)
 
 (define (fmt-in-macro? st) (fmt-ref st 'in-macro?))

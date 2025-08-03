@@ -33,4 +33,5 @@
 (test 'a.b (make-field-access '(.b a)))
 (test 'a.b.c (make-field-access '(.c a.b)))
 
+;;; Should be the last in the test suite
 (test-exit)

@@ -1,10 +1,9 @@
 (declare (unit sexc)
          (uses sex-modules
+               fmt-c
                templates))
 
 (include "utils.macros.scm")
-
-(load "fmt-c.scm")
 
 (import brev-separate
         (chicken file)
