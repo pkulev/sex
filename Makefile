@@ -17,7 +17,7 @@ main.o: main.scm
 
 sex-tests: $(OBJ) tests/run.scm
 	$(CHICKEN_C) tests/run.scm -c -o sex-tests.o
-	$(CHICKEN_C) $(OBJ) test.o -o sex-tests
+	$(CHICKEN_C) $(OBJ) sex-tests.o -o sex-tests
 
 clean:
 	rm -f $(OBJ) sexc sex-tests
