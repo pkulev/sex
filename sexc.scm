@@ -17,6 +17,7 @@
         getopt-long
         regex
         srfi-1                          ; list routines
+        srfi-13                         ; string routines
         tree)
 
 (define (unkebabify sym)
@@ -248,10 +249,7 @@
   (cdr (assoc '@ args)))
 
 (define (get-c-compiler-args args)
-  (do ((c-args (get-rest-args args) (cdr c-args)))
-      ((or (null? c-args)
-           (char=? #\- (string-ref (car c-args) 0)))
-       c-args)))
+  (filter (fn (string-prefix? "-" x)) (get-rest-args args)))
 
 (define (get-input-file args)
   (let ((rest-args (get-rest-args args)))
