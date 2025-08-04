@@ -7,6 +7,7 @@
         (chicken file)
         (chicken load)
         (chicken pathname)
+        (chicken process-context)
         (chicken string)
         fmt
         srfi-1)
