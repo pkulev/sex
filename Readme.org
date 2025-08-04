@@ -39,7 +39,7 @@ Options:
 sexc ./examples/hell-world.sex -o hello
 #+end_src
 
-That't it. Now you should have executable named ~hello~ in your
+That's it. Now you should have executable named ~hello~ in your
 directory. Sex uses C under the hood, the default C compiler is ~cc~,
 but you can pass any using ~--c-compiler~ option, or by setting
 ~SEX_CC~ environment variable.
@@ -82,19 +82,19 @@ proper form: ~GL-ARRAY-BUFFER~.
 ** Modules
 Each source file is a module. Module can provide public interface and
 be imported by using ~(import path/to/module)~ expression. Module
-search path consists of two parts: firs is relative to the source
+search path consists of two parts: first is relative to the source
 being compiled location, and the second is ~SEX_MODULE_PATH~
 environment variable.
 
-Module's public interface consists of everything declarred
-~pub~. Structures, function, templates, types, varialbes can be
+Module's public interface consists of everything declared
+~pub~. Structures, function, templates, types, variables can be
 public.
 
 ** Syntactic templates
 Sex has support for template substitutions. Any piece of code can be
 templated. Template declarations look like functions: they have a
 name, an argument list and a body. When declared template is
-encountered during reading of Sex code, its body will udergo syntactic
+encountered during reading of Sex code, its body will undergo syntactic
 rewriting using the provided values by the following rules:
 1. If the value is a symbol, all arguments in a body are replaced with
    the value, and also all /parts/ of any other symbol equal to the
