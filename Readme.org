@@ -35,8 +35,8 @@ Options:
                           If -E or -m options are provided, defaults to stdout
 #+end_src
 ** Compiling Hello World
-#+begin_src
-sexc ./examples/hell-world.sex -o hello
+#+begin_src shell
+  sexc ./examples/hell-world.sex -o hello
 #+end_src
 
 That's it. Now you should have executable named ~hello~ in your
@@ -46,7 +46,7 @@ but you can pass any using ~--c-compiler~ option, or by setting
 
 ** Example
 An example of Sex source:
-#+begin_src
+#+begin_src scheme
 (include stdio.h)
 
 (pub fn int main ((int argc) (char **argv))
@@ -59,7 +59,7 @@ An example of Sex source:
 #+end_src
 
 Compile and run:
-#+begin_src
+#+begin_src shell
 ~/dev/sex $ ./sexc ./example/hello-world.sex -o hello-world
 ~/dev/sex $ ./hello-world
 Hello from Sex!
@@ -97,7 +97,7 @@ return Sex code.
 
 *** Examples:
 **** Structure with templated value type
-#+begin_src
+#+begin_src scheme
 (pub defmacro (list-T type)
   (let ((list-type (cat 'list- type)))
     `(struct ,list-type
@@ -107,14 +107,14 @@ return Sex code.
 (list-T int)
 #+end_src
 ->
-#+begin_src
+#+begin_src scheme
 (struct list_int
  ((int value)
   ((* list_int) next)))
 #+end_src
 
 **** Wrapper for checking return codes
-#+begin_src
+#+begin_src scheme
 (pub defmacro (check-sdl-return call message ret-code)
   `((if (< 0 ,call)
         (begin
@@ -127,7 +127,7 @@ return Sex code.
 ...)
 #+end_src
 ->
-#+begin_src
+#+begin_src c
 (%fun int init ()
   (if (< 0 (SDL_Init SDL_INIT_VIDEO))
     (%begin (puts "Failed to initialize SDL") (return 1)))
@@ -142,7 +142,7 @@ best option.
 *** sex-mode.el
 To harness the power of sex-mode, add the following lines to your
 ~$HOME/.config/emacs/init.el~:
-#+begin_src
+#+begin_src emacs-lisp
 (use-package sex-mode
   :load-path "/path/to/sex"
   :mode ("\\.sex\\'"))
