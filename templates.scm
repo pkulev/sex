@@ -1,8 +1,8 @@
 (declare (unit templates))
 
 (import
-  (chicken plist)
   brev-separate
+  (chicken plist)
   fmt
   regex
   srfi-1                                ; list routines

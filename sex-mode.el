@@ -34,6 +34,7 @@ All commands in `lisp-mode-shared-map' are inherited by this map.")
                                  "chicken-load"
                                  "define"
                                  "extern"
+                                 "import"
                                  "include"
                                  "fn"
                                  "pub"
@@ -80,6 +81,7 @@ All commands in `lisp-mode-shared-map' are inherited by this map.")
 (put 'template 'lisp-indent-function 'defun)
 (put 'struct 'lisp-indent-function 'defun)
 (put 'var 'lisp-indent-function 0)
+(put 'import 'lisp-indent-function 1)
 
 ;;;###autoload
 (define-derived-mode sex-mode lisp-data-mode "Sex"

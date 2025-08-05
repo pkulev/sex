@@ -1,20 +1,24 @@
 (declare (unit sexc)
-         (uses templates))
+         (uses sex-modules
+               fmt-c
+               templates))
+
+(include "utils.macros.scm")
 
 (import brev-separate
+        (chicken file)
         (chicken pathname)
         (chicken plist)
         (chicken pretty-print)
+        (chicken process)
         (chicken process-context)
         (chicken string)
         fmt
-        fmt-c
         getopt-long
         regex
         srfi-1                          ; list routines
+        srfi-13                         ; string routines
         tree)
-
-(define +debug+ #f)
 
 (define (unkebabify sym)
   (case sym
@@ -43,12 +47,6 @@
      (if (symbol? atom)
          (unkebabify atom)
          atom))))
-
-(define (tree-finder symbol)
-  (lambda (node)
-    (or (and (tree? node)
-             (eq? (car node) symbol))
-        #f)))
 
 (define (make-field-access form)
   (assert (= 2 (length form)) "Wrong field access format")
@@ -86,7 +84,7 @@
 
    ;; another special case - template
    ((template? form)
-    (append (fold
+    (append (fold-right
              walk-generic
              (list)
              (eval form))
@@ -95,11 +93,10 @@
    ;; toplevel, or a start of a regular list form
    (else
     (let ((new-acc (list)))
-      (cons (reverse
-             (fold
-              walk-generic
-              new-acc
-              form))
+      (cons (fold-right
+             walk-generic
+             new-acc
+             form)
             acc)))))
 
 (define (normalize-fn-form form)
@@ -141,7 +138,10 @@
      (walk-function form #f acc))
     ((var)
      (append (walk-generic (list 'static (cdr form)) (list)) acc))
-    (else (error "Pub what?"))))
+    ((define import include struct template typedef union var)
+     ;; ignore here, used in generating public interface
+     (process-form (cdr form) acc))
+    (else (error "Pub what?" (cadr form)))))
 
 (define (template? form)
   (and (list? form)
@@ -151,9 +151,9 @@
 (define (walk-sex-tree form acc)
   (if (list? form)
       (if (template? form)
-          (fold (fn (walk-sex-tree x y))
-                acc
-                (eval form))
+          (fold-right (fn (walk-sex-tree x y))
+                      acc
+                      (eval form))
           (case (car form)
             ((fn) (walk-function form #t acc))
             ((extern) (walk-extern form acc))
@@ -174,9 +174,13 @@
      (load (cadr form)) acc)
     ((chicken-import)
      (eval (cons 'import (cdr form))) acc)
+    ((import)
+     (append (process-raw-forms
+
+              (import-modules (cdr form)) (list))
+             acc))
     (else
      (walk-sex-tree form acc))))
-
 
 (define (process-raw-forms raw-forms acc)
   (if (null? raw-forms)
@@ -191,31 +195,47 @@
 
 (define (emit-c forms)
   (for-each (lambda (form)
-              (fmt #t (c-expr form))
-              (fmt #t "\n"))
+              (fmt #t (c-expr form) nl))
             forms))
 
 ;;; Main function facilities
 
 (define opts-grammar
-  `((output "Write output to file"
-            (required #f)
-            (value #t)
-            (single-char #\o))
-    (help "Show this help"
-          (required #f)
-          (value #f)
-          (single-char #\h))
-    (macro-expand "Emit macro-expanded Sex code instead of C"
+  (let ((padding 26))
+    `((c-compiler ,(fmt #f "Select C compiler. Defaults to value of SEX_CC" nl
+                        (pad padding) "environment variable, or if it is empty, to cc")
+                  (required #f)
+                  (value #t))
+      (compile-object "Compile object file instead of executable program"
+                      (required #f)
+                      (value #f)
+                      (single-char #\c))
+      (preprocess "Emit C code"
                   (required #f)
                   (value #f)
-                  (single-char #\m))))
+                  (single-char #\E))
+      (public-interface "Get module's public interface"
+                        (required #f)
+                        (value #f))
+      (help "Show this help"
+            (required #f)
+            (value #f)
+            (single-char #\h))
+      (macro-expand "Emit macro-expanded Sex code"
+                    (required #f)
+                    (value #f)
+                    (single-char #\m))
+      (output ,(fmt #f "Write output to file. Default file name is a.out." nl
+                    (pad padding) "If -E or -m options are provided, defaults to stdout")
+              (required #f)
+              (value #t)
+              (single-char #\o)))))
 
 (define (print-help)
-  (fmt #t "Usage: sexc [OPTIONS] [FILE]\n")
-  (fmt #t "Options: -o, --output <file>        Write output to file. If omitted, write to stdout\n")
-  (fmt #t "         -h, --help                 Show this help\n")
-  (fmt #t "         -m, --macro-expand         Emit macro-expanded Sex code instead of C\n"))
+  (fmt #t "Usage: sexc [options] filename [-- options-for-c-compiler]\n")
+  (fmt #t "Options:\n")
+  (fmt #t (usage opts-grammar))
+  (fmt #t ""))
 
 (define (help-arg? args)
   (assoc 'help args))
@@ -225,44 +245,99 @@
     (if arg (cdr arg)
         default)))
 
+(define (get-rest-args args)
+  (cdr (assoc '@ args)))
+
+(define (get-c-compiler-args args)
+  (filter (fn (string-prefix? "-" x)) (get-rest-args args)))
+
 (define (get-input-file args)
-  (let ((rest-args (assoc '@ args)))
-    (if (= 1 (length rest-args))
+  (let ((rest-args (get-rest-args args)))
+    (if (null? rest-args)
         'stdin
-        (cadr rest-args))))
+        (car rest-args))))
 
 (define (read-from-file file)
-  (with-input-from-file (pathname-strip-directory file)
-    (fn (read-forms (list)))))
+  (with-directory file
+   (with-input-from-file (pathname-strip-directory file)
+     (fn (read-forms (list))))))
 
-(define (set-working-directory file)
-  (change-directory
-   (normalize-pathname
-    (make-absolute-pathname
-     (current-directory)
-     (pathname-directory file)))))
+(define (write-to-file-or-stdout output what)
+  (if (eq? output 'default)
+      (what)
+      (with-output-to-file output
+        (fn (what)))))
+
+(define (preprocess-or-macroexpand sex-forms output args)
+  (write-to-file-or-stdout
+   output
+   (lambda ()
+    (if (get-arg args 'macro-expand #f)
+        (map pp sex-forms)
+        (emit-c sex-forms)))))
+
+(define (compile-to-file sex-forms output args)
+  (let ((compiler (or (get-arg args 'c-compiler #f)
+                      (get-env-var "SEX_CC")
+                      "cc"))
+        (out-file (if (eq? output 'default)
+                      "a.out"
+                      output))
+        (temp-c-out (create-temporary-file ".sex.c")))
+    (with-output-to-file temp-c-out
+      (lambda ()
+        (emit-c sex-forms)))
+    (call-with-values
+        (lambda ()
+          (process compiler (append (list temp-c-out "-o" out-file)
+                                    (if (get-arg args 'compile-object #f)
+                                        (list "-c")
+                                        (list))
+                                    (get-c-compiler-args args))))
+      (lambda (out-port in-port pid)
+        (process-wait pid)))))
+
+(define (process-input input raw-forms)
+  (let ((current-dir (current-directory)))
+    (unless (eq? input 'stdin)
+      (set-working-directory input))
+    (prog1
+     (process-raw-forms raw-forms (list))
+     (change-directory current-dir))))
 
 (define (main)
   (let* ((raw-args (command-line-arguments))
-         (current-dir (current-directory))
          (args (getopt-long raw-args
                             opts-grammar))
-         (output (get-arg args 'output 'stdout))
+         (output (get-arg args 'output 'default))
          (help (help-arg? args))
-         (input (get-input-file args)))
-    (if help (print-help)
-        (let* ((raw-forms
-                (if (eq? input 'stdin)
-                    (read-forms (list))
-                    (begin
-                      (set-working-directory input)
-                      (read-from-file input))))
-               (sex-forms (process-raw-forms raw-forms (list))))
-          (change-directory current-dir)
-          (if (get-arg args 'macro-expand #f)
-              (map pp sex-forms)
-              (if (not (eq? output 'stdout))
-                  (with-output-to-file output
-                    (lambda ()
-                      (emit-c sex-forms)))
-                  (emit-c sex-forms)))))))
+
+         (input (get-input-file args))
+         (current-dir (current-directory)))
+    (call/cc
+     (lambda (return)
+       (when help
+         (print-help)
+         (return #f))
+       (when (get-arg args 'public-interface #f)
+         (assert (not (eq? input 'stdin)) "Error: --public-interface requires file argument")
+
+         (write-to-file-or-stdout
+          output
+          (fn
+           (map pp (reverse
+                    (read-public-interface input)))))
+         (return #f))
+       (load-persistent-module-paths)
+
+       (let* ((raw-forms
+               (if (eq? input 'stdin)
+                   (read-forms (list))
+                   (read-from-file input)))
+              (sex-forms (process-input input raw-forms)))
+         (if (or (get-arg args 'macro-expand #f)
+                 (get-arg args 'preprocess #f))
+             ;; Preprocess or macroexpand
+             (preprocess-or-macroexpand sex-forms output args)
+             ;; Compile file!
+             (compile-to-file sex-forms output args)))))))

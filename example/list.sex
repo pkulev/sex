@@ -1,0 +1,37 @@
+(pub template (list-T ?T)
+  (struct list-?T
+    ((?T value)
+     ((* list-?T) next))))
+
+(pub template (make-list-T ?T is-public?)
+  (,@(if 'is-public? '(pub) '()) fn (* list-?T) make-list-?T ()
+   (var (* list-?T) list (cast (* list-?T) (malloc (sizeof list-?T))))
+   (= (-> list next) NULL)
+   list))
+
+(pub template (add-value-list-T ?T is-public?)
+  (,@(if 'is-public? '(pub) '()) fn void add-value-list-?T ((list-?T *list) (?T value))
+   (while (!= (-> list next) NULL)
+     (= list (-> list next)))
+   (= (-> list next) (make-list-?T))
+   (= (-> list value) value)))
+
+(pub template (length-list-T ?T is-public?)
+  (,@(if 'is-public? '(pub) '()) fn size-t length-list-?T ((list-?T *list))
+   (var size-t n 0)
+   (while (!= (-> list next) NULL)
+     (= list (-> list next))
+     (++ n))
+   n))
+
+(pub template (is-empty-list-T ?T is-public?)
+  (,@(if 'is-public? '(pub) '()) fn bool is-empty-list-?T ((list-?T *list))
+    (== (-> list next) NULL)))
+
+(pub template (list-for-each list-type list-var elt-type elt-var what-do)
+  (var (pointer list-type) list-var-2 list-var)
+  (var elt-type elt-var (-> list-var-2 value))
+  (while (!= (-> list-var-2 next) NULL)
+    what-do
+    (= list-var-2 (-> list-var-2 next))
+    (= elt-var (-> list-var-2 value))))

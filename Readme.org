@@ -6,7 +6,7 @@ computations are written in Chicken.
 
 And Chicken is [[https://call-cc.org][R5RS Scheme]].
 
-* Compilation and usage
+* Compilation
 First, get yourself a Chicken. Second, some Chicken deps.
 
 ** Install Chicken Eggs
@@ -14,53 +14,58 @@ By the way, there's a way to make Chicken install eggs non-globally. Refer to
 the documentation for more info:
 https://wiki.call-cc.org/man/5/Extension%20tools#changing-the-repository-location
 
-~chicken-install fmt getopt-long brev-separate~
+~chicken-install fmt getopt-long brev-separate test tree srfi-1 srfi-13~
 
 ** Compilation
 ~make~
 
-** Usage
-You'll also need a C compiler, so pick any.
+* Usage
+** Summary
 #+begin_src
-cat hello-world.sex | sexc > hello_world.c
-cc hello_world.c -o hello_world
+Usage: sexc [options] filename [-- options-for-c-compiler]
+Options:
+ --c-compiler=ARG         Select C compiler. Defaults to value of SEX_CC
+                          environment variable, or if it is empty, to cc
+ -c, --compile-object     Compile object file instead of executable program
+ -E, --preprocess         Emit C code
+ --public-interface       Get module's public interface
+ -h, --help               Show this help
+ -m, --macro-expand       Emit macro-expanded Sex code
+ -o, --output=ARG         Write output to file. Default file name is a.out.
+                          If -E or -m options are provided, defaults to stdout
+#+end_src
+** Compiling Hello World
+#+begin_src
+sexc ./examples/hell-world.sex -o hello
 #+end_src
 
-* Example
-Here is an example, demonstrating what Sex source looks like, and what
-it compiles too. An avid reader also shall notice how we call Chicken
-procedures in Sex source.
+That's it. Now you should have executable named ~hello~ in your
+directory. Sex uses C under the hood, the default C compiler is ~cc~,
+but you can pass any using ~--c-compiler~ option, or by setting
+~SEX_CC~ environment variable.
 
-The Sex source:
+** Example
+An example of Sex source:
 #+begin_src
 (include stdio.h)
 
-(define (foo)
-  "Hello from Chicken code!\n")
-
 (pub fn int main ((int argc) (char **argv))
-    (puts "Hello from Sex!")
-    (var (array char 512) name)
-    (puts "What is your name?")
-    (scanf "%s" &name)
-    (printf "Hello, %s!\n" name)
-    (printf ,(foo))
-    0)
+  (puts "Hello from Sex!")
+  (var (array char 512) name)
+  (puts "What is your name?")
+  (scanf "%s" (cast char* &name))
+  (printf "Hello, %s!\n" name)
+  0)
 #+end_src
 
-The resulting C source:
+Compile and run:
 #+begin_src
-#include <stdio.h>
-
-int main (int argc, char **argv) {
-    puts("Hello from Sex!");
-    char name[512];
-    puts("What is your name?");
-    scanf("%s", &name);
-    printf("Hello, %s!\n", name);
-    printf("Hello from Chicken code!\n");
-    return 0;
-}
+~/dev/sex $ ./sexc ./example/hello-world.sex -o hello-world
+~/dev/sex $ ./hello-world
+Hello from Sex!
+What is your name?
+Alex
+Hello, Alex!
 #+end_src
 
 * Features
@@ -68,33 +73,28 @@ int main (int argc, char **argv) {
 Just ~(include "Your/Favourite/Library.h")~ and use it as you would
 have is C.
 
+** Auto unkebabification
 For hardcore fans of traditional Lisp naming convention,
 Sex offers automatic unkebabification of all symbols, i.e. no more
 ugly ~GL_ARRAY_BUFFER~ s in your code, they may be written in their
 proper form: ~GL-ARRAY-BUFFER~.
 
-** Auto typedef for structs
-Probably harmless idk. Example:
-#+begin_src
-(struct foo
-  ((float a)
-   (int b)))
-#+end_src
-expands to
-#+begin_src
-typedef struct foo foo;
+** Modules
+Each source file is a module. Module can provide public interface and
+be imported by using ~(import path/to/module)~ expression. Module
+search path consists of two parts: first is relative to the source
+being compiled location, and the second is ~SEX_MODULE_PATH~
+environment variable.
 
-struct foo {
-    float a;
-    int b;
-};
-#+end_src
+Module's public interface consists of everything declared
+~pub~. Structures, function, templates, types, variables can be
+public.
 
 ** Syntactic templates
 Sex has support for template substitutions. Any piece of code can be
 templated. Template declarations look like functions: they have a
 name, an argument list and a body. When declared template is
-encountered during reading of Sex code, its body will udergo syntactic
+encountered during reading of Sex code, its body will undergo syntactic
 rewriting using the provided values by the following rules:
 1. If the value is a symbol, all arguments in a body are replaced with
    the value, and also all /parts/ of any other symbol equal to the
