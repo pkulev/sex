@@ -36,7 +36,7 @@ Options:
 #+end_src
 ** Compiling Hello World
 #+begin_src shell
-  sexc ./examples/hell-world.sex -o hello
+sexc ./examples/hello-world.sex -o hello
 #+end_src
 
 That's it. Now you should have executable named ~hello~ in your
