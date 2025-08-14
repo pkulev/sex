@@ -17,4 +17,4 @@ sex-tests: $(OBJ) tests/run.scm
 	$(CHICKEN_C) $(OBJ) sex-tests.o -o sex-tests
 
 clean:
-	rm -f $(OBJ) sexc sex-tests main.o sex-test.o
+	rm -f $(OBJ) sexc sex-tests main.o sex-tests.o
