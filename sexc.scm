@@ -1,8 +1,7 @@
 (declare (unit sexc)
          (uses fmt-c
                sex-macros
-               sex-modules
-               sex-types))
+               sex-modules))
 
 (include "utils.macros.scm")
 
